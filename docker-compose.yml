@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  photoview:
+    container_name: photoview
+    image: viktorstrate/photoview
+    hostname: photoview
+    environment:
+      - PHOTOVIEW_DATABASE_DRIVER=postgres
+      - PHOTOVIEW_POSTGRES_URL=postgresql://photoviewuser:photoviewpass@photoview-db:5432/photoview
+      - PHOTOVIEW_LISTEN_PORT=4000
+      - PHOTOVIEW_MEDIA_CACHE=/app/cache
+    ports:
+      - 4000:4000
+    mem_limit: 2g
+    cpu_shares: 1024
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    healthcheck:
+      test: curl -f http://localhost:4000/ || exit 1
+    volumes:
+      - /data/photoview/cache:/app/cache:rw
+      - /data/photoview/photos:/photos:ro
+     #- /path_to_photos:/photos2:ro
+    restart: on-failure:5
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    container_name: postgres
+    image: postgres
+    hostname: photoview-db
+    environment:
+      - POSTGRES_DB=photoview
+      - POSTGRES_USER=photoviewuser
+      - POSTGRES_PASSWORD=photoviewpass
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - /data/photoview/db:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpu_shares: 768
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "photoview", "-U", "photoviewuser"]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    restart: on-failure:5
